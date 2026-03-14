@@ -1,0 +1,244 @@
+# Onion Architecture
+
+=== core
+# Core
+
+## What
+The inner rings of the onion — everything that represents your business. Contains the domain model at the center, domain services in the next ring, and application services in the ring around that. Has zero dependencies on infrastructure or frameworks.
+
+## Why
+The onion's fundamental rule: dependencies always point inward. The core knows nothing about databases, HTTP, or external services. This makes it the most stable, testable, and portable part of your system.
+
+## What Goes Here
+Use the subdirectories: `domain/` for your business models, domain services, and contracts; `application/` for services that orchestrate domain logic.
+
+=== core/domain
+# Domain (Inner Rings)
+
+## What
+The center of the onion. Contains your business entities, value objects, domain services, and the interfaces that define what the domain needs from the outside. Palermo's original onion defines two rings here: the Domain Model (innermost) and Domain Services (next ring out).
+
+## Why
+This is the most protected part of your system. Nothing should cause changes here except actual business requirement changes. It depends on absolutely nothing.
+
+## What Goes Here
+Use `models/` for entities and value objects, `services/` for domain logic spanning multiple models, `interfaces/` for repository and service contracts.
+
+=== core/domain/models
+# Domain Models (Innermost Ring)
+
+## What
+Entities and value objects that represent your business concepts with their rules and invariants. This is the absolute center of the onion.
+
+## Why
+Models are the heart of the onion. They encapsulate what is true about your business regardless of what technology you use.
+
+## What Goes Here
+`User.ts`, `Order.ts`, `Product.ts`, `Email.ts`, `Money.ts`. Each carries its own validation and business behavior.
+
+## What Does NOT Belong Here
+ORM decorators, serialization logic, or any infrastructure concern.
+
+=== core/domain/services
+# Domain Services (Second Ring)
+
+## What
+Business logic that involves multiple domain models but is still pure domain logic. In Palermo's onion, this is the ring immediately surrounding the domain model — it depends only on domain models and interfaces, never on application or infrastructure concerns.
+
+## Why
+Some business rules don't fit on a single entity. A `PricingService` that computes order totals from products, discounts, and tax rules coordinates multiple domain objects. It's not application orchestration (that would be "load the order, calculate price, save, notify") — it's a pure domain calculation. This ring gives those rules a home without polluting application services with business logic.
+
+## What Goes Here
+`PricingService.ts`, `TransferService.ts`, `InventoryAllocationService.ts`, `ShippingCalculator.ts`, `CreditScoringService.ts`. Each contains pure business logic with no infrastructure dependencies.
+
+## What Does NOT Belong Here
+Application workflow orchestration (loading, saving, triggering side effects), infrastructure calls, or use-case coordination. If it needs to call a repository or emit a notification, it's an application service, not a domain service.
+
+## How This Differs From Application Services
+Domain services answer business questions: "What does this order cost?" or "Can this transfer proceed?" Application services orchestrate workflows: "Load the accounts, check the transfer, execute it, save both accounts, emit an event." Domain services are called *by* application services.
+
+=== core/domain/interfaces
+# Domain Interfaces
+
+## What
+Contracts that define what capabilities the domain requires — repositories, external service abstractions. Defined here, implemented in infrastructure.
+
+## Why
+Dependency inversion at the domain level. The domain says "I need something that can find users" without knowing whether it's SQL, NoSQL, or an in-memory store.
+
+## What Goes Here
+`UserRepository.ts`, `OrderRepository.ts`, `PaymentGateway.ts`, `NotificationService.ts`. Pure interfaces only.
+
+## What Does NOT Belong Here
+Implementations of any kind.
+
+=== core/application
+# Application (Third Ring)
+
+## What
+Application services that orchestrate domain objects and domain services to fulfill use cases. This ring depends on the domain rings and nothing else.
+
+## Why
+Application services define what the system does — the workflows and operations. They coordinate domain objects and domain services without containing business rules themselves.
+
+## What Goes Here
+Use `services/` for use-case implementations, `interfaces/` for application-level contracts, `dtos/` for data transfer objects.
+
+=== core/application/services
+# Application Services
+
+## What
+Services that implement use cases by coordinating domain models, domain services, and interfaces. Each service represents an application capability.
+
+## Why
+They translate user intent into domain operations. A `PlaceOrderService` validates input, calls the `PricingService` to calculate totals, creates an `Order` entity, saves it through the repository interface, and triggers events.
+
+## What Goes Here
+`CreateUserService.ts`, `PlaceOrderService.ts`, `ProcessPaymentService.ts`, `GetUserProfileService.ts`.
+
+## What Does NOT Belong Here
+Business rules (go on domain models or domain services), infrastructure code, or HTTP handling.
+
+=== core/application/interfaces
+# Application Interfaces
+
+## What
+Contracts for application-level concerns that sit outside the domain — caching, logging, or application-specific service abstractions.
+
+## Why
+Some interfaces are application concerns rather than domain concerns. A caching strategy or a specific notification workflow might not be a core business concept but the application still needs to abstract it.
+
+## What Goes Here
+`CacheService.ts`, `EventPublisher.ts`, `ApplicationLogger.ts`.
+
+## What Does NOT Belong Here
+Domain repository interfaces (those go in `core/domain/interfaces/`), or concrete implementations.
+
+=== core/application/dtos
+# Data Transfer Objects
+
+## What
+Simple data structures for passing data into and out of application services.
+
+## Why
+DTOs protect domain entities from leaking to outer layers and provide a clear contract for what data services expect and return.
+
+## What Goes Here
+`CreateUserInput.ts`, `UserResponse.ts`, `OrderSummary.ts`, `PaginationParams.ts`.
+
+## What Does NOT Belong Here
+Business logic or behavior.
+
+=== infrastructure
+# Infrastructure (Outer Ring)
+
+## What
+Concrete implementations of the interfaces defined in the core. Databases, external APIs, message queues, file storage — all the technical details.
+
+## Why
+By pushing all infrastructure behind interfaces, your application and domain layers remain clean and testable. You can change your database, switch email providers, or replace a third-party API — all without modifying business logic.
+
+## What Goes Here
+Use `persistence/` for database implementations, `external/` for third-party service integrations.
+
+=== infrastructure/persistence
+# Persistence
+
+## What
+Database-related code — repository implementations, ORM setup, migrations, connection management.
+
+## Why
+Isolates all database concerns. Your core talks to `UserRepository` the interface. This folder provides `PostgresUserRepository` the implementation.
+
+## What Goes Here
+`PostgresUserRepository.ts`, `MongoOrderRepository.ts`, ORM schemas, migrations, seeders, connection pool config.
+
+## What Does NOT Belong Here
+Business logic or HTTP handling.
+
+=== infrastructure/external
+# External Services
+
+## What
+Integrations with third-party services and systems outside your application boundary.
+
+## Why
+Third-party dependencies are volatile and should be isolated behind interfaces so they can be swapped or mocked easily.
+
+## What Goes Here
+`StripePaymentGateway.ts`, `SendGridNotificationService.ts`, `S3FileStorage.ts`, `RedisCache.ts`.
+
+## What Does NOT Belong Here
+Domain logic or persistence code.
+
+=== api
+# API (Outermost Ring)
+
+## What
+The external interface of your application — HTTP controllers, middleware, route definitions. This is how the outside world interacts with your system.
+
+## Why
+Separating the API layer means you can change frameworks, add new protocols (GraphQL, gRPC), or restructure endpoints without any impact on business logic.
+
+## What Goes Here
+Use `controllers/` for request handlers, `middleware/` for cross-cutting HTTP concerns.
+
+=== api/controllers
+# Controllers
+
+## What
+HTTP request handlers that translate requests into application service calls and format responses.
+
+## Why
+Controllers are thin adapters between HTTP and your application. They parse input, call a service, and return a response.
+
+## What Goes Here
+`UserController.ts`, `OrderController.ts`, `AuthController.ts`. Route definitions if not separated.
+
+## What Does NOT Belong Here
+Business logic or database queries.
+
+=== api/middleware
+# Middleware
+
+## What
+Cross-cutting HTTP concerns — authentication, logging, rate limiting, error handling.
+
+## Why
+Centralizes request/response processing that applies to many or all routes.
+
+## What Goes Here
+`auth.ts`, `rateLimiter.ts`, `errorHandler.ts`, `requestLogger.ts`, `cors.ts`.
+
+## What Does NOT Belong Here
+Business logic.
+
+=== config
+# Config
+
+## What
+Application configuration, environment settings, and dependency injection wiring (composition root).
+
+## Why
+Centralizes all configuration and the wiring of interfaces to implementations.
+
+## What Goes Here
+`container.ts`, `database.config.ts`, `app.config.ts`, `environment.ts`.
+
+## What Does NOT Belong Here
+Business logic or route definitions.
+
+=== shared
+# Shared
+
+## What
+Cross-cutting utilities and types that don't belong to any specific layer.
+
+## Why
+Generic helper code that multiple layers use — result types, date utilities, constants.
+
+## What Goes Here
+`Result.ts`, `DateUtils.ts`, `constants.ts`, generic types.
+
+## What Does NOT Belong Here
+Domain-specific or infrastructure-specific code.

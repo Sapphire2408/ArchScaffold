@@ -1,0 +1,307 @@
+# CQRS (Command Query Responsibility Segregation)
+
+Note: This template represents CQRS without Event Sourcing.
+CQRS+ES is a common variant where the write side persists
+events rather than state, and read models are built from
+event projections. That variant replaces the write store
+with an event store and adds snapshot support.
+
+=== commands
+# Commands
+
+## What
+The write side of CQRS. Commands represent intentions to change state — they are requests to do something. Each command has a handler that executes it.
+
+## Why
+Separating writes from reads allows you to optimize each independently. Write operations often involve complex validation, business rules, and event emission. By isolating them, each command becomes a focused, testable unit.
+
+## What Goes Here
+Command definitions like `CreateUserCommand.ts`, `PlaceOrderCommand.ts` live directly here. Use `handlers/` for execution logic, `validators/` for command validation.
+
+=== commands/handlers
+# Command Handlers
+
+## What
+Each handler processes exactly one command. It validates the command, executes domain logic, persists changes, and optionally emits events.
+
+## Why
+One handler per command enforces single responsibility. Each handler is independently testable and its behavior is completely predictable from its command type.
+
+## What Goes Here
+`CreateUserHandler.ts`, `PlaceOrderHandler.ts`, `CancelOrderHandler.ts`, `UpdateProfileHandler.ts`.
+
+## What Does NOT Belong Here
+Query logic, HTTP handling, or cross-command orchestration (that belongs in process managers).
+
+=== commands/validators
+# Command Validators
+
+## What
+Validation logic specific to commands — ensuring a command is well-formed before the handler processes it.
+
+## Why
+Separating validation from handling keeps handlers focused on business logic. Validators reject invalid commands early, before domain objects are loaded.
+
+## What Goes Here
+`CreateUserValidator.ts`, `PlaceOrderValidator.ts`. Schema-based or rule-based validation for each command.
+
+## What Does NOT Belong Here
+Business logic or query validation.
+
+=== queries
+# Queries
+
+## What
+The read side of CQRS. Queries request data without modifying state. They can use optimized read models structured for the specific view or report needed.
+
+## Why
+Reads often have very different performance characteristics from writes. By separating them, you can use denormalized read models, caching, or even a separate read database.
+
+## What Goes Here
+Query definitions like `GetUserQuery.ts`, `ListOrdersQuery.ts` live directly here. Use `handlers/` for execution, `models/` for read-optimized data shapes.
+
+=== queries/handlers
+# Query Handlers
+
+## What
+Each handler processes exactly one query. It retrieves data from the read store and returns it in the appropriate shape.
+
+## Why
+Query handlers can bypass domain models entirely, reading directly from optimized views or projections. This keeps reads fast and independent of write-side complexity.
+
+## What Goes Here
+`GetUserHandler.ts`, `ListOrdersHandler.ts`, `GetDashboardHandler.ts`, `SearchProductsHandler.ts`.
+
+## What Does NOT Belong Here
+State mutations, command processing, or business rule enforcement.
+
+=== queries/models
+# Read Models
+
+## What
+Data structures optimized for specific queries or views. Unlike domain models, these are shaped for reading — denormalized, pre-computed, ready to serve.
+
+## Why
+Read models eliminate complex joins and transformations at query time. A `UserProfileView` might combine data from multiple entities into a flat, fast-to-read shape.
+
+## What Goes Here
+`UserProfileView.ts`, `OrderSummaryView.ts`, `DashboardStats.ts`, `ProductListItem.ts`.
+
+## What Does NOT Belong Here
+Business logic, mutations, or write-side domain models.
+
+=== domain
+# Domain
+
+## What
+Core business models, events, and interfaces. Used primarily by the write side — commands load domain models, apply changes, and emit events.
+
+## Why
+The domain encapsulates business truth. In CQRS, the domain is authoritative for the write side.
+
+## What Goes Here
+Use `models/` for entities and aggregates, `events/` for domain events, `interfaces/` for repository contracts.
+
+=== domain/models
+# Domain Models
+
+## What
+Entities, aggregates, and value objects that enforce business rules on the write side.
+
+## Why
+Domain models ensure all state changes go through validated business logic. An `Order` aggregate controls its own state transitions.
+
+## What Goes Here
+`User.ts`, `Order.ts`, `Product.ts`, `Money.ts`. Aggregate roots and their child entities.
+
+## What Does NOT Belong Here
+Read models, query logic, or infrastructure concerns.
+
+=== domain/events
+# Domain Events
+
+## What
+Events emitted when something meaningful happens in the domain. In CQRS, these are critical — they often drive read model updates.
+
+## Why
+Events bridge the write and read sides. When a command handler persists a change, it emits an event. Event handlers then update read models, send notifications, or trigger workflows.
+
+## What Goes Here
+`UserCreated.ts`, `OrderPlaced.ts`, `PaymentProcessed.ts`, `ItemShipped.ts`.
+
+## What Does NOT Belong Here
+Event handlers or infrastructure code.
+
+=== domain/interfaces
+# Domain Interfaces
+
+## What
+Repository and service contracts for the write side.
+
+## Why
+Dependency inversion — command handlers depend on these abstractions, infrastructure provides implementations.
+
+## What Goes Here
+`UserWriteRepository.ts`, `OrderWriteRepository.ts`, `EventStore.ts`, `PaymentGateway.ts`.
+
+## What Does NOT Belong Here
+Read-side repository interfaces or implementations.
+
+=== process-managers
+# Process Managers (Sagas)
+
+## What
+Long-running workflows that coordinate multiple commands and events across aggregates or bounded contexts. A process manager listens for events and dispatches commands in response, managing a multi-step business process.
+
+## Why
+Some operations span multiple aggregates and can't be handled by a single command handler. An order fulfillment process might involve: reserve inventory, charge payment, schedule shipping — each a separate command on a separate aggregate. If one step fails, preceding steps need compensation (e.g., release the reserved inventory). Process managers orchestrate this.
+
+## What Goes Here
+`OrderFulfillmentProcess.ts`, `PaymentRetryProcess.ts`, `UserOnboardingProcess.ts`, `RefundProcess.ts`. Each manages the lifecycle of one multi-step workflow, tracking its state and deciding which command to issue next based on incoming events.
+
+## What Does NOT Belong Here
+Single-step command logic (that's a command handler), read-side projections, or infrastructure concerns.
+
+## How It Works
+A process manager typically: (1) is started by an initiating event, (2) maintains internal state tracking which steps have completed, (3) issues commands in response to events, (4) handles failure by issuing compensating commands, (5) completes or times out.
+
+=== infrastructure
+# Infrastructure
+
+## What
+Concrete implementations for both the read and write sides — databases, message buses, external services.
+
+## Why
+In CQRS, infrastructure is often split between read and write stores. You might write to a normalized relational database and read from a denormalized projection store.
+
+## What Goes Here
+Use `persistence/` for data storage (split by read/write), `messaging/` for event buses and message queues.
+
+=== infrastructure/persistence
+# Persistence
+
+## What
+All data storage concerns, split between `write/` and `read/` to reflect CQRS's fundamental separation.
+
+## Why
+Read and write stores can be completely different technologies. Even with one database, the separation makes it easy to split later.
+
+## What Goes Here
+Use `write/` for command-side persistence, `read/` for query-side persistence.
+
+=== infrastructure/persistence/write
+# Write Store
+
+## What
+Persistence implementations for the command side — where state changes are stored.
+
+## Why
+The write store is optimized for transactional consistency and domain model persistence.
+
+## What Goes Here
+`PostgresUserRepository.ts`, `EventStoreOrderRepository.ts`, write-side ORM models, migrations.
+
+## What Does NOT Belong Here
+Read-side projections or query-optimized views.
+
+=== infrastructure/persistence/read
+# Read Store
+
+## What
+Persistence implementations for the query side — where read models are stored and retrieved.
+
+## Why
+The read store is optimized for fast queries. It might use denormalized tables, materialized views, or a separate database like Elasticsearch.
+
+## What Goes Here
+`UserProfileProjection.ts`, `OrderSummaryProjection.ts`, read-side repository implementations, projection update handlers.
+
+## What Does NOT Belong Here
+Write-side logic or domain model persistence.
+
+=== infrastructure/messaging
+# Messaging
+
+## What
+Event bus, message queue implementations, and event dispatching infrastructure.
+
+## Why
+Messaging connects the write and read sides. When a command handler emits a domain event, the messaging infrastructure delivers it to handlers that update read models, trigger process managers, or fire side effects.
+
+## What Goes Here
+`EventBus.ts`, `RabbitMQPublisher.ts`, `KafkaConsumer.ts`, `InMemoryEventBus.ts` (for testing).
+
+## What Does NOT Belong Here
+Domain event definitions or business logic.
+
+=== api
+# API
+
+## What
+HTTP layer — controllers and middleware. Translates HTTP requests into commands and queries.
+
+## Why
+The API layer dispatches commands (POST/PUT/DELETE) and queries (GET) to their respective handlers.
+
+## What Goes Here
+Use `controllers/` for request handlers, `middleware/` for HTTP concerns.
+
+=== api/controllers
+# Controllers
+
+## What
+HTTP handlers that construct commands or queries from requests and dispatch them.
+
+## Why
+Controllers in CQRS are very thin — they create a command or query object and pass it to the bus.
+
+## What Goes Here
+`UserController.ts`, `OrderController.ts`. Each method creates a command (for writes) or query (for reads) and dispatches it.
+
+## What Does NOT Belong Here
+Business logic or direct database access.
+
+=== api/middleware
+# Middleware
+
+## What
+Cross-cutting HTTP concerns.
+
+## Why
+Centralizes authentication, logging, rate limiting.
+
+## What Goes Here
+`auth.ts`, `errorHandler.ts`, `rateLimiter.ts`, `requestLogger.ts`.
+
+## What Does NOT Belong Here
+Business logic.
+
+=== config
+# Config
+
+## What
+Application configuration, environment settings, and the composition root.
+
+## Why
+Centralizes configuration and the wiring of commands, queries, handlers, and process managers.
+
+## What Goes Here
+`container.ts`, `database.config.ts`, `messaging.config.ts`, `environment.ts`.
+
+## What Does NOT Belong Here
+Business logic.
+
+=== shared
+# Shared
+
+## What
+Cross-cutting utilities and types used by both command and query sides.
+
+## Why
+Generic helpers and abstractions that don't belong to either side specifically.
+
+## What Goes Here
+`Result.ts`, `DateUtils.ts`, `constants.ts`, `CommandBus.ts` interface, `QueryBus.ts` interface.
+
+## What Does NOT Belong Here
+Domain-specific code.

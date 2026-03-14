@@ -1,0 +1,199 @@
+# Hexagonal Architecture (Ports & Adapters)
+
+=== adapters
+# Adapters
+
+## What
+The adapters layer is the outermost ring of hexagonal architecture. It translates between the outside world and your application's ports.
+
+## Why
+Adapters isolate your core business logic from external concerns like HTTP frameworks, databases, message queues, and third-party APIs. You can swap an adapter without touching any business logic.
+
+## What Goes Here
+Nothing directly — use the `inbound/` and `outbound/` subdirectories. This layer is split by direction: inbound adapters drive your application, outbound adapters are driven by it.
+
+=== adapters/inbound
+# Inbound Adapters
+
+## What
+Inbound adapters receive input from the outside world and translate it into calls on your application's inbound ports. They are the entry points to your system.
+
+## Why
+They decouple your delivery mechanism (REST, GraphQL, CLI, message consumer) from your business logic. You can serve the same use case over HTTP and a CLI without duplicating logic.
+
+## What Goes Here
+REST controllers, GraphQL resolvers, CLI command handlers, message queue consumers, WebSocket handlers, scheduled job triggers. For example: `UserController.ts`, `OrderGraphQLResolver.ts`, `ImportCli.ts`.
+
+## What Does NOT Belong Here
+Business logic, validation rules, database queries, or direct calls to external services. An inbound adapter should only call an inbound port.
+
+=== adapters/outbound
+# Outbound Adapters
+
+## What
+Outbound adapters implement the outbound ports defined by your core. They are how your application talks to the outside world — databases, APIs, file systems, email providers.
+
+## Why
+Your core defines what it needs through outbound port interfaces. Outbound adapters provide the concrete implementation. This means you can swap Postgres for MongoDB, or a real email service for a test stub, without changing any business logic.
+
+## What Goes Here
+Repository implementations, API client wrappers, email service implementations, file storage adapters, cache implementations. For example: `PostgresUserRepository.ts`, `StripePaymentGateway.ts`, `S3FileStorage.ts`, `RedisCache.ts`.
+
+## What Does NOT Belong Here
+Business rules, domain models, or HTTP routing. An outbound adapter only implements an outbound port interface.
+
+=== core
+# Core
+
+## What
+The core is the heart of your hexagonal architecture. It contains all business logic, domain models, and port definitions. It has zero dependencies on frameworks, databases, or external services.
+
+## Why
+This is the most important architectural boundary. The core must be completely independent — it depends on nothing outside itself. Everything else depends on the core. This makes your business logic testable, portable, and immune to infrastructure changes.
+
+## What Goes Here
+Use the subdirectories: `domain/` for your models, events, and exceptions; `ports/` for your interface definitions; `services/` for your application/use-case logic.
+
+=== core/domain
+# Domain
+
+## What
+The domain layer holds the fundamental building blocks of your business: the entities, value objects, domain events, and domain-specific exceptions that model your problem space.
+
+## Why
+This is your ubiquitous language in code. These objects should read like the business talks. They carry behavior and enforce invariants — they are not just data containers.
+
+## What Goes Here
+Use the subdirectories: `models/` for entities and value objects, `events/` for domain events, `exceptions/` for domain-specific errors.
+
+=== core/domain/models
+# Domain Models
+
+## What
+Entities and value objects that represent your business concepts. Entities have identity and lifecycle. Value objects are defined by their attributes and are immutable.
+
+## Why
+Models encapsulate business rules and invariants. A `User` entity that validates its own email format, or an `OrderTotal` value object that cannot be negative — these prevent invalid states from existing.
+
+## What Goes Here
+Entities like `User.ts`, `Order.ts`, `Product.ts`. Value objects like `Email.ts`, `Money.ts`, `Address.ts`. Aggregates that group related entities.
+
+## What Does NOT Belong Here
+Database annotations, JSON serialization logic, framework decorators. Models must be plain objects with business behavior only.
+
+=== core/domain/events
+# Domain Events
+
+## What
+Events that represent something meaningful that happened in your domain. They are named in past tense: something occurred.
+
+## Why
+Domain events decouple side effects from the actions that cause them. When an order is placed, the `OrderPlaced` event can trigger email notifications, inventory updates, and analytics — without the order logic knowing about any of those.
+
+## What Goes Here
+Event classes or types like `UserRegistered.ts`, `OrderPlaced.ts`, `PaymentReceived.ts`, `ItemShipped.ts`. Each event should carry the data needed by any handler.
+
+## What Does NOT Belong Here
+Event handlers, publishers, or infrastructure concerns. Only the event definitions live here.
+
+=== core/domain/exceptions
+# Domain Exceptions
+
+## What
+Custom error types that represent business rule violations or domain-specific failure states.
+
+## Why
+Generic errors like "not found" or "invalid input" lose meaning as they propagate through layers. Domain exceptions like `InsufficientFundsError` or `OrderAlreadyShippedError` communicate exactly what went wrong in business terms.
+
+## What Goes Here
+Custom exception classes like `InsufficientFundsError.ts`, `UserAlreadyExistsError.ts`, `InvalidOrderStateError.ts`, `ProductOutOfStockError.ts`.
+
+## What Does NOT Belong Here
+HTTP status codes, error response formatting, or infrastructure errors. Those belong in the adapters layer.
+
+=== core/ports
+# Ports
+
+## What
+Ports are interfaces (contracts) that define how the core communicates with the outside world. They are the API boundary of your hexagonal core.
+
+## Why
+Ports enforce the dependency inversion principle. The core defines what it needs; adapters provide the implementation. This boundary is what makes the architecture hexagonal — the core never knows who's calling it or what it's calling.
+
+## What Goes Here
+Use the subdirectories: `inbound/` for interfaces that the outside world calls into your core, `outbound/` for interfaces your core calls out through.
+
+=== core/ports/inbound
+# Inbound Ports
+
+## What
+Interfaces that define what your application can do — its use cases. These are the entry points that inbound adapters call.
+
+## Why
+Inbound ports define your application's capabilities without coupling to a delivery mechanism. Whether a use case is triggered by an HTTP request, a CLI command, or a test, the same port interface is used.
+
+## What Goes Here
+Use-case interfaces like `CreateUserPort.ts`, `PlaceOrderPort.ts`, `GetUserProfilePort.ts`. Each defines a method signature with its input and output types.
+
+## What Does NOT Belong Here
+Implementation logic. Inbound ports are interfaces only — the implementation lives in `core/services/`.
+
+=== core/ports/outbound
+# Outbound Ports
+
+## What
+Interfaces that define what your core needs from the outside world — repositories, external services, notifications. The core depends on these abstractions, never on concrete implementations.
+
+## Why
+This is where dependency inversion happens. Your core says "I need something that can save a user" via `UserRepository` interface. Whether that's Postgres, MongoDB, or an in-memory store is decided in the adapters layer.
+
+## What Goes Here
+Repository interfaces like `UserRepository.ts`, `OrderRepository.ts`. Service interfaces like `PaymentGateway.ts`, `EmailService.ts`, `FileStorage.ts`, `NotificationService.ts`.
+
+## What Does NOT Belong Here
+Implementations. Only the interface/contract definition lives here. Implementations go in `adapters/outbound/`.
+
+=== core/services
+# Services (Application Layer)
+
+## What
+Services implement your inbound ports. They orchestrate domain objects and outbound ports to fulfill use cases. This is where your application logic lives.
+
+## Why
+Services are the glue between your domain and the outside world. They coordinate: receive a command, load domain objects through outbound ports, execute domain logic, persist results, emit events. They contain application flow but not business rules — those live in the domain models.
+
+## What Goes Here
+Use-case implementations like `CreateUserService.ts`, `PlaceOrderService.ts`, `ProcessPaymentService.ts`. Each implements an inbound port and depends on outbound ports.
+
+## What Does NOT Belong Here
+HTTP handling, database queries, or business rules that belong on domain models. If a service is getting complex, the logic probably belongs in a domain model or a domain service.
+
+=== config
+# Config
+
+## What
+Application configuration, dependency injection setup, and environment-specific settings.
+
+## Why
+Centralizing configuration keeps environment-specific details out of your business logic. This is also where you wire adapters to ports — the composition root of your application.
+
+## What Goes Here
+Dependency injection containers, environment config loaders, app bootstrap files, feature flags. For example: `container.ts`, `database.config.ts`, `app.config.ts`, `environment.ts`.
+
+## What Does NOT Belong Here
+Business logic, route definitions, or adapter implementations.
+
+=== shared
+# Shared
+
+## What
+Utilities, types, and helpers that are used across multiple layers but don't belong to any specific one.
+
+## Why
+Some concerns genuinely cross boundaries — logging interfaces, generic result types, date utilities. Rather than duplicating them or forcing them into a layer they don't belong to, they live here.
+
+## What Goes Here
+Generic utility functions, shared type definitions, logging abstractions, common constants, result/error wrapper types. For example: `Result.ts`, `DateUtils.ts`, `Logger.ts`, `constants.ts`.
+
+## What Does NOT Belong Here
+Anything domain-specific, anything adapter-specific. If it relates to your business, it goes in core. If it relates to infrastructure, it goes in adapters. This folder is for genuinely cross-cutting, domain-agnostic utilities.

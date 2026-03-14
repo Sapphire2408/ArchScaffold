@@ -1,0 +1,26 @@
+# Ignore test environments
+test_env/
+tests/test_env/
+test_app/
+dry_test_app/
+real_test_app/
+tmpHome/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node
+node_modules/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

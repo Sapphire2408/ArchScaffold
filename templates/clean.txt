@@ -1,0 +1,247 @@
+# Clean Architecture
+
+=== domain
+# Domain Layer
+
+## What
+The innermost layer of clean architecture. Contains enterprise-wide business rules — entities, value objects, domain services, and domain exceptions. This layer has zero dependencies on anything else.
+
+## Why
+Domain objects represent the most stable part of your system. They change only when the fundamental business changes. By isolating them, you protect them from being affected by UI changes, database changes, or framework changes.
+
+## What Goes Here
+Use the subdirectories: `entities/` for business objects with identity, `value-objects/` for immutable descriptors, `services/` for domain logic spanning multiple entities, `exceptions/` for domain-specific errors.
+
+=== domain/entities
+# Entities
+
+## What
+Objects that have a distinct identity that persists over time. An entity is defined by its ID, not its attributes — two users with the same name are still different users.
+
+## Why
+Entities carry your core business rules and enforce invariants. They are the most critical and stable part of your codebase.
+
+## What Goes Here
+Business entities like `User.ts`, `Order.ts`, `Product.ts`, `Invoice.ts`. Each entity encapsulates its own validation and business rules.
+
+## What Does NOT Belong Here
+Database schemas, ORM decorators, serialization logic, or framework-specific annotations.
+
+=== domain/value-objects
+# Value Objects
+
+## What
+Immutable objects defined by their attributes rather than identity. Two `Email` objects with the same address are equal, regardless of when they were created.
+
+## Why
+Value objects eliminate primitive obsession — instead of passing strings around and validating them everywhere, you create a type that is always valid by construction.
+
+## What Goes Here
+`Email.ts`, `Money.ts`, `PhoneNumber.ts`, `Address.ts`, `DateRange.ts`, `Percentage.ts`. Each validates its own invariants on creation.
+
+## What Does NOT Belong Here
+Anything with an ID or lifecycle. Those are entities.
+
+=== domain/services
+# Domain Services
+
+## What
+Business logic that spans multiple entities or value objects but is still pure domain logic. Domain services sit at the same innermost layer as entities — they depend on nothing outside the domain.
+
+## Why
+Some business rules don't naturally belong on a single entity. A pricing calculation that combines product rules, discount policies, and tax regulations involves multiple domain objects. Putting this on one entity would overload it; putting it in the application layer would leak business logic outward. Domain services fill this gap.
+
+## What Goes Here
+`PricingService.ts`, `TransferService.ts`, `InventoryAllocationService.ts`, `ShippingCalculator.ts`, `CreditScoringService.ts`. Each contains pure business logic that coordinates multiple domain objects.
+
+## What Does NOT Belong Here
+Application orchestration (use-case flow), infrastructure calls, or HTTP concerns. Domain services have zero dependencies outside the domain layer. If it needs a repository or external service, it belongs in `application/use-cases/`, not here.
+
+## How It Differs From Application Use Cases
+A domain service answers a domain question or enforces a domain rule: "What is the price of this order?" An application use case orchestrates a workflow: "Load the order, calculate its price, save it, send a confirmation." The domain service is called by the use case, not the other way around.
+
+=== domain/exceptions
+# Domain Exceptions
+
+## What
+Custom error types representing business rule violations.
+
+## Why
+They give precise meaning to failures. `EmailAlreadyInUseError` is more useful than a generic `ConflictError` — both for developers reading the code and for adapters that need to map errors to responses.
+
+## What Goes Here
+`EmailAlreadyInUseError.ts`, `InsufficientBalanceError.ts`, `OrderNotCancellableError.ts`.
+
+## What Does NOT Belong Here
+HTTP status codes or infrastructure errors. Mapping domain exceptions to HTTP responses happens in the presentation layer.
+
+=== application
+# Application Layer
+
+## What
+Contains application-specific business rules — use cases that orchestrate the flow of data to and from entities. This layer depends on the domain layer and defines interfaces for the infrastructure layer.
+
+## Why
+Use cases represent what your application can do. They sit between the domain and the outside world, coordinating operations without containing business rules themselves.
+
+## What Goes Here
+Use the subdirectories: `use-cases/` for application operations, `interfaces/` for repository and service contracts, `dtos/` for data transfer objects.
+
+=== application/use-cases
+# Use Cases
+
+## What
+Each use case represents a single application operation — one thing a user or system can do. They orchestrate entities, domain services, and interfaces to fulfill a specific workflow.
+
+## Why
+Use cases make your application's capabilities explicit and discoverable. Each is independently testable and represents a clear unit of application behavior.
+
+## What Goes Here
+One file per use case: `CreateUser.ts`, `PlaceOrder.ts`, `CancelOrder.ts`, `GetUserProfile.ts`, `TransferFunds.ts`. Each takes input, coordinates domain objects and domain services, and returns output.
+
+## What Does NOT Belong Here
+Business rules (those live on entities or domain services), infrastructure details, or HTTP concerns.
+
+=== application/interfaces
+# Application Interfaces
+
+## What
+Abstract contracts that the application layer needs but doesn't implement. These define what capabilities the infrastructure must provide.
+
+## Why
+This is the dependency inversion boundary. Use cases depend on these abstractions. Infrastructure implements them. This means you can test use cases with mocks and swap implementations without touching application code.
+
+## What Goes Here
+Repository interfaces like `UserRepository.ts`, `OrderRepository.ts`. Service interfaces like `PaymentService.ts`, `EmailService.ts`, `FileUploader.ts`.
+
+## What Does NOT Belong Here
+Concrete implementations — those go in `infrastructure/`.
+
+=== application/dtos
+# Data Transfer Objects (DTOs)
+
+## What
+Simple data structures used to pass data across layer boundaries. They define the shape of input to and output from use cases.
+
+## Why
+DTOs prevent your domain entities from leaking into outer layers. A use case receives a `CreateUserDTO` and returns a `UserResponseDTO` — the caller never touches the actual `User` entity.
+
+## What Goes Here
+Input DTOs like `CreateUserInput.ts`, `PlaceOrderInput.ts`. Output DTOs like `UserResponse.ts`, `OrderSummary.ts`. Shared DTOs like `PaginationParams.ts`.
+
+## What Does NOT Belong Here
+Behavior or business logic. DTOs are pure data containers.
+
+=== infrastructure
+# Infrastructure Layer
+
+## What
+Concrete implementations of the interfaces defined by the application layer. This is where you deal with databases, external APIs, file systems, and other technical concerns.
+
+## Why
+By pushing all infrastructure behind interfaces, your application and domain layers remain clean and testable. You can change your database, switch email providers, or replace a third-party API — all without modifying business logic.
+
+## What Goes Here
+Use the subdirectories: `database/` for persistence implementations, `external-services/` for third-party integrations.
+
+=== infrastructure/database
+# Database
+
+## What
+Everything related to data persistence — repository implementations, ORM configurations, migrations, seeders.
+
+## Why
+Database concerns are isolated here so they don't leak into your business logic. Your application asks for a `UserRepository`; this folder provides `PostgresUserRepository`.
+
+## What Goes Here
+Repository implementations like `PostgresUserRepository.ts`, `MongoOrderRepository.ts`. ORM models/schemas, migration files, database connection setup, seeders.
+
+## What Does NOT Belong Here
+Business logic, domain validation, or use-case orchestration.
+
+=== infrastructure/external-services
+# External Services
+
+## What
+Implementations of application interfaces that integrate with third-party services — payment processors, email providers, cloud storage, analytics.
+
+## Why
+Third-party dependencies are some of the most volatile parts of your system. Isolating them means switching from Stripe to another payment provider is a change in one adapter, not a codebase-wide refactor.
+
+## What Goes Here
+`StripePaymentService.ts`, `SendGridEmailService.ts`, `S3FileUploader.ts`, `TwilioSmsService.ts`, `CloudinaryImageService.ts`.
+
+## What Does NOT Belong Here
+Database code, business logic, or HTTP routing.
+
+=== presentation
+# Presentation Layer
+
+## What
+The outermost layer — it handles HTTP requests, formats responses, applies middleware, and translates between the external world and your use cases.
+
+## Why
+This layer adapts the outside world to your application. It converts HTTP requests into use-case inputs and use-case outputs into HTTP responses. By isolating it, you can swap frameworks or add new delivery mechanisms without touching business logic.
+
+## What Goes Here
+Use the subdirectories: `controllers/` for request handlers, `middleware/` for cross-cutting HTTP concerns.
+
+=== presentation/controllers
+# Controllers
+
+## What
+Request handlers that receive HTTP input, call the appropriate use case, and return a formatted response. They are thin — just translation and delegation.
+
+## Why
+Controllers separate HTTP concerns from application logic. They parse request parameters, call a use case with a DTO, and format the result as an HTTP response. No business logic lives here.
+
+## What Goes Here
+`UserController.ts`, `OrderController.ts`, `AuthController.ts`, `ProductController.ts`. Route definitions can live here or in a separate routes file.
+
+## What Does NOT Belong Here
+Business logic, database queries, or complex data transformations.
+
+=== presentation/middleware
+# Middleware
+
+## What
+Functions that process requests before they reach controllers or responses before they leave. They handle cross-cutting concerns at the HTTP level.
+
+## Why
+Middleware centralizes concerns like authentication, rate limiting, and logging so they don't clutter your controllers.
+
+## What Goes Here
+`authMiddleware.ts`, `rateLimiter.ts`, `requestLogger.ts`, `errorHandler.ts`, `corsConfig.ts`, `validationMiddleware.ts`.
+
+## What Does NOT Belong Here
+Business logic or use-case orchestration.
+
+=== config
+# Config
+
+## What
+Application configuration, environment settings, and dependency injection wiring.
+
+## Why
+Centralizing configuration keeps environment-specific details out of business logic. The composition root — where you wire interfaces to implementations — lives here.
+
+## What Goes Here
+`container.ts` (DI setup), `database.config.ts`, `app.config.ts`, `environment.ts`, `logger.config.ts`.
+
+## What Does NOT Belong Here
+Business logic or route definitions.
+
+=== shared
+# Shared
+
+## What
+Cross-cutting utilities and types used across multiple layers.
+
+## Why
+Some things genuinely don't belong to any specific layer — generic result types, utility functions, constants.
+
+## What Goes Here
+`Result.ts`, `DateUtils.ts`, `constants.ts`, `Logger.ts`, generic type definitions.
+
+## What Does NOT Belong Here
+Domain-specific or infrastructure-specific code.

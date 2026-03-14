@@ -1,0 +1,159 @@
+# Modular Monolith
+
+=== modules
+# Modules
+
+## What
+Each module is a self-contained vertical slice of your application — a bounded context with its own domain, application logic, infrastructure, and API. Modules communicate through well-defined public interfaces, not by reaching into each other's internals.
+
+## Why
+A modular monolith gives you the logical separation of microservices with the operational simplicity of a monolith. Each module can be developed and reasoned about independently. If you ever need to extract a module into a separate service, the boundaries are already drawn.
+
+## What Goes Here
+Create a subdirectory for each module: `users/`, `orders/`, `payments/`, `inventory/`. Each module should have its own internal structure:
+module-name/
+domain/ — models, events, interfaces
+application/ — services, use cases, DTOs
+infrastructure/ — repositories, external integrations
+api/ — controllers, routes
+index.ts — public API of this module
+The `index.ts` (or equivalent) is critical — it defines what this module exports to others. Other modules should only import from this public API, never from internal files.
+
+## Anti-Corruption Layers
+When Module A needs to use concepts from Module B, it should not depend directly on Module B's domain models. Instead, Module A defines its own representation of what it needs and translates at the boundary. This is the anti-corruption layer (ACL) pattern from DDD. For example, the Orders module might define its own `OrderCustomer` type that maps from the Users module's public API, rather than importing the Users module's `User` entity directly. This prevents one module's internal changes from cascading into others.
+
+## What Does NOT Belong Here
+Cross-module shared code — that goes in `shared/`. If two modules need the same thing, it either belongs in shared or one module should expose it through its public API.
+
+=== modules/_example
+# Example Module
+
+## What
+This is a reference module showing the expected internal structure. Rename or delete it when you create your real modules.
+
+## Structure
+A module mirrors a miniature clean/onion architecture:
+
+- `domain/` — The module's own entities, value objects, events, and repository interfaces. This is the module's private business logic.
+- `application/` — Services/use cases that orchestrate domain objects. DTOs for input/output.
+- `infrastructure/` — Repository implementations, external service integrations specific to this module.
+- `api/` — Controllers and routes that expose this module's capabilities over HTTP.
+- `index.ts` — The public API. Only types and functions exported here are available to other modules.
+
+## Rules
+1. A module's internals are private — other modules never import from subdirectories.
+2. All inter-module communication goes through the public API (`index.ts`).
+3. Each module owns its own database tables/collections. No sharing tables between modules.
+4. If a module needs data from another module, it calls that module's public API, never its database directly.
+5. Async communication between modules (via events) is preferred over synchronous calls when possible.
+
+=== modules/_example/domain
+# Module Domain
+
+## What
+This module's private business models, events, and contracts. No other module should import from here directly.
+
+## What Goes Here
+Entities, value objects, domain events, repository interfaces, and domain services specific to this module.
+
+=== modules/_example/application
+# Module Application
+
+## What
+Use cases and orchestration logic for this module.
+
+## What Goes Here
+Service classes implementing use cases, DTOs for input/output, application-level interfaces.
+
+=== modules/_example/infrastructure
+# Module Infrastructure
+
+## What
+Concrete implementations of this module's domain interfaces.
+
+## What Goes Here
+Repository implementations, external API clients, module-specific configuration.
+
+=== modules/_example/api
+# Module API
+
+## What
+HTTP controllers and routes for this module's endpoints.
+
+## What Goes Here
+Controllers, route definitions, request/response validation schemas.
+
+=== shared
+# Shared
+
+## What
+Code shared across modules — kernel types, common infrastructure, and shared type definitions.
+
+## Why
+Some things are genuinely cross-cutting: base entity classes, event bus interfaces, common value objects like `Money` or `Email`. Rather than duplicating them in every module, they live here.
+
+## What Goes Here
+Use `kernel/` for core shared domain concepts, `infrastructure/` for shared technical utilities, `types/` for shared type definitions.
+
+## Important Rule
+Be conservative about what goes in shared. If something is only used by two modules, consider if one module should own it. An ever-growing shared layer is a sign that module boundaries are wrong.
+
+=== shared/kernel
+# Shared Kernel
+
+## What
+Core building blocks shared across all modules — base classes, common value objects, event infrastructure, and domain primitives.
+
+## Why
+The shared kernel is a DDD concept. It's the small set of domain concepts that multiple bounded contexts agree on. It should be stable and change rarely.
+
+## What Goes Here
+`BaseEntity.ts`, `AggregateRoot.ts`, `DomainEvent.ts`, `ValueObject.ts`, `Money.ts`, `Email.ts`, `EventBus.ts` interface.
+
+## What Does NOT Belong Here
+Module-specific domain concepts. If it's only relevant to one module, it belongs in that module.
+
+=== shared/infrastructure
+# Shared Infrastructure
+
+## What
+Technical utilities and implementations shared across modules — database connection, logging, common middleware.
+
+## Why
+Infrastructure like database connections, logging frameworks, and common middleware doesn't make sense to duplicate per module.
+
+## What Goes Here
+`DatabaseConnection.ts`, `Logger.ts`, `BaseRepository.ts`, common middleware, error handling utilities.
+
+## What Does NOT Belong Here
+Module-specific repositories or service implementations.
+
+=== shared/types
+# Shared Types
+
+## What
+Type definitions, interfaces, and enums used across multiple modules.
+
+## Why
+Some types are universal — pagination, API response wrappers, common enums.
+
+## What Goes Here
+`Pagination.ts`, `ApiResponse.ts`, `SortOrder.ts`, common enums, utility types.
+
+## What Does NOT Belong Here
+Module-specific types.
+
+=== config
+# Config
+
+## What
+Application-level configuration, module registration, and composition root.
+
+## Why
+This is where you bootstrap the application, register all modules, configure shared infrastructure, and set up cross-module event routing.
+
+## What Goes Here
+`app.config.ts`, `database.config.ts`, `modules.ts` (module registration), `environment.ts`, `container.ts`.
+
+## What Does NOT Belong Here
+Module-specific configuration (that belongs inside each module).

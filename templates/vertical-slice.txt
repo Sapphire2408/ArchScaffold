@@ -1,0 +1,139 @@
+# Vertical Slice Architecture
+
+=== features
+# Features
+
+## What
+The heart of vertical slice architecture. Instead of organizing code by technical layer (controllers, services, repositories), you organize by feature — each feature is a self-contained vertical slice that cuts through all layers. A slice contains everything it needs: handler, validation, data access, request/response models.
+
+## Why
+In a layered architecture, adding a feature means touching many directories — add a controller here, a service there, a repository over there, a DTO somewhere else. In vertical slice, adding a feature means adding one folder. Deleting a feature means deleting one folder. Each slice is independent, so changes to one feature can't accidentally break another.
+
+## How to Organize
+Group features by domain area, then by operation:
+## Rules
+1. Each slice is independent — slices never import from each other.
+2. A slice can depend on `shared/` but not on other slices.
+3. The handler is the entry point — it receives a request, does the work, returns a response.
+4. Data access can be inline in the handler (for simple cases) or in a slice-specific query/repository file.
+5. If logic is truly shared between slices, it moves to `shared/domain/` — but be conservative about this.
+
+## What Does NOT Belong Here
+Cross-cutting infrastructure (database connections, auth middleware) — that goes in `shared/`. The features directory is purely for business capability slices.
+
+=== features/users
+# Users Feature Group
+
+## What
+All features related to user management. Each subdirectory is one complete operation — one API endpoint, one use case, one vertical slice.
+
+## Why
+Grouping by domain area keeps related features discoverable while maintaining slice independence. The grouping is purely organizational — it doesn't create coupling between slices within the group.
+
+## What Goes Here
+Feature directories: `create-user/`, `get-user-profile/`, `update-user/`, `delete-user/`, `list-users/`, `change-password/`, `verify-email/`. Each is a standalone slice.
+
+## What Does NOT Belong Here
+Shared user domain logic — if multiple user slices need the same entity or validation, that shared logic goes in `shared/domain/` or a shared file at this level (e.g., `UserEntity.ts` at `features/users/UserEntity.ts` shared among user slices).
+
+=== features/orders
+# Orders Feature Group
+
+## What
+All features related to order management. Each subdirectory is one complete operation.
+
+## What Goes Here
+Feature directories: `place-order/`, `cancel-order/`, `get-order/`, `list-orders/`, `update-order-status/`. Each is a standalone slice.
+
+=== shared
+# Shared
+
+## What
+Cross-cutting code that multiple feature slices depend on. This includes infrastructure, domain concepts shared across features, middleware, and common types.
+
+## Why
+While vertical slice minimizes shared code, some things are genuinely cross-cutting: database connections, authentication, base entity types, common validation rules. These live here rather than being duplicated in every slice.
+
+## Important
+Keep this layer thin. The moment `shared/` grows large, you're rebuilding a layered architecture inside your slice architecture. Each addition to shared should be justified — ask "is this truly needed by many slices, or can it live in one slice?"
+
+## What Goes Here
+Use `database/` for persistence infrastructure, `middleware/` for HTTP concerns, `domain/` for shared business concepts, `types/` for common type definitions.
+
+=== shared/database
+# Shared Database
+
+## What
+Database connection management, base repository classes, migrations, and ORM configuration. This is the persistence infrastructure that all slices use.
+
+## Why
+Every slice that needs data access uses the same database connection and benefits from the same base query patterns. Duplicating connection setup per slice would be wasteful.
+
+## What Goes Here
+`connection.ts`, `BaseRepository.ts`, `migrations/`, ORM configuration, query builder setup, transaction helpers. Seeders for development data.
+
+## What Does NOT Belong Here
+Feature-specific queries or repositories. Those live inside each feature's slice. Only the shared infrastructure lives here.
+
+=== shared/middleware
+# Shared Middleware
+
+## What
+HTTP middleware used across many or all feature endpoints — authentication, error handling, rate limiting, request logging.
+
+## Why
+Middleware applies uniformly across features and doesn't belong to any single slice.
+
+## What Goes Here
+`auth.ts`, `errorHandler.ts`, `rateLimiter.ts`, `requestLogger.ts`, `cors.ts`, `validationMiddleware.ts`.
+
+## What Does NOT Belong Here
+Feature-specific logic. If middleware only applies to one feature, it can live in that feature's slice.
+
+=== shared/domain
+# Shared Domain
+
+## What
+Domain concepts shared across multiple feature slices — entities, value objects, and domain services that more than one feature needs.
+
+## Why
+In vertical slice, you accept some duplication to maintain slice independence. But when the same entity (like `User` or `Order`) is genuinely used by many slices, extracting it here avoids divergent copies.
+
+## What Goes Here
+`UserEntity.ts`, `OrderEntity.ts`, `Money.ts`, `Email.ts`, shared validation rules, shared domain services. Repository interfaces if multiple slices share the same data access pattern.
+
+## What Does NOT Belong Here
+Feature-specific models or logic. If only one slice uses a model, it stays in that slice. Migration to shared should only happen when duplication becomes a real problem.
+
+=== shared/types
+# Shared Types
+
+## What
+Common type definitions, interfaces, and enums used across slices.
+
+## Why
+Some types are universal — pagination parameters, API response wrappers, sort options, error types.
+
+## What Goes Here
+`Pagination.ts`, `ApiResponse.ts`, `Result.ts`, `SortOrder.ts`, common enums, utility types.
+
+## What Does NOT Belong Here
+Feature-specific request/response types. Those live inside each slice.
+
+=== config
+# Config
+
+## What
+Application bootstrap, route registration, environment settings, and feature wiring.
+
+## Why
+Centralizes application startup: registering all feature routes, configuring middleware, setting up the database connection.
+
+## What Goes Here
+`app.ts` (or `index.ts`) that wires everything together, `routes.ts` that registers all feature endpoints, `environment.ts`, `database.config.ts`.
+
+## Route Registration
+A key pattern in vertical slice: each feature exports its route definition, and `config/routes.ts` imports and registers all of them. This keeps routing centralized while features stay independent.
+
+## What Does NOT Belong Here
+Feature logic or shared domain code.

@@ -1,0 +1,214 @@
+# Layered (N-Tier) Architecture
+
+=== presentation
+# Presentation Layer
+
+## What
+The top layer — handles HTTP requests, routing, and response formatting. It receives user input and delegates to the business layer.
+
+## Why
+Separating presentation from business logic means you can change your web framework or add new interfaces without rewriting business rules.
+
+## What Goes Here
+Use `controllers/` for request handlers, `middleware/` for HTTP concerns, `routes/` for route definitions.
+
+=== presentation/controllers
+# Controllers
+
+## What
+Request handlers that parse input, call business services, and return formatted responses.
+
+## Why
+Thin translation layer between HTTP and your business logic.
+
+## What Goes Here
+`UserController.ts`, `OrderController.ts`, `AuthController.ts`.
+
+## What Does NOT Belong Here
+Business logic, database queries, or complex transformations.
+
+=== presentation/middleware
+# Middleware
+
+## What
+Functions that intercept requests/responses for cross-cutting concerns.
+
+## Why
+Centralizes authentication, logging, error handling, and other concerns that span multiple routes.
+
+## What Goes Here
+`auth.ts`, `errorHandler.ts`, `rateLimiter.ts`, `requestLogger.ts`.
+
+## What Does NOT Belong Here
+Business logic.
+
+=== presentation/routes
+# Routes
+
+## What
+Route definitions that map HTTP endpoints to controllers.
+
+## Why
+Separating routes from controllers makes your URL structure visible at a glance and allows reorganizing endpoints without modifying handler logic.
+
+## What Goes Here
+`userRoutes.ts`, `orderRoutes.ts`, `authRoutes.ts`, `index.ts` (route aggregator).
+
+## What Does NOT Belong Here
+Request handling logic — that belongs in controllers.
+
+=== business
+# Business Layer
+
+## What
+The middle layer — contains all business logic, validation rules, and service orchestration. It depends on the data layer and is called by the presentation layer.
+
+## Why
+Isolating business logic in its own layer means it can be reused across different presentation mechanisms and tested independently.
+
+## What Goes Here
+Use `services/` for business operations, `validators/` for validation rules.
+
+=== business/services
+# Services
+
+## What
+Business services that implement your application's operations — the core logic of what your system does.
+
+## Why
+Services encapsulate business workflows. A `UserService` handles user creation, validation, and coordination between repositories.
+
+## What Goes Here
+`UserService.ts`, `OrderService.ts`, `PaymentService.ts`, `NotificationService.ts`, `AuthService.ts`.
+
+## What Does NOT Belong Here
+HTTP concerns, direct database queries (use repositories), or response formatting.
+
+=== business/validators
+# Validators
+
+## What
+Validation logic for business rules — input validation, state validation, cross-field validation.
+
+## Why
+Extracting validation keeps services focused on orchestration and makes validation rules reusable and testable.
+
+## What Goes Here
+`userValidator.ts`, `orderValidator.ts`, `paymentValidator.ts`. Schema definitions if using a validation library.
+
+## What Does NOT Belong Here
+Business orchestration or data access.
+
+=== data
+# Data Layer
+
+## What
+The bottom layer — handles all data persistence, database interactions, and entity definitions. It's the only layer that talks to the database.
+
+## Why
+Isolating data access means you can change your database, query strategy, or ORM without affecting business logic.
+
+## What Goes Here
+Use `repositories/` for data access objects, `entities/` for database models, `migrations/` for schema changes.
+
+=== data/repositories
+# Repositories
+
+## What
+Data access objects that encapsulate all database queries and operations for a specific entity.
+
+## Why
+Repositories provide a clean interface for data operations. The business layer calls `userRepository.findById(id)` without knowing the underlying query.
+
+## What Goes Here
+`UserRepository.ts`, `OrderRepository.ts`, `ProductRepository.ts`. Each encapsulates CRUD and custom queries for one entity.
+
+## What Does NOT Belong Here
+Business logic or HTTP concerns.
+
+=== data/entities
+# Entities
+
+## What
+Database models/schemas — the shape of your data as it exists in the database.
+
+## Why
+Separating database models from business logic prevents ORM concerns from leaking into your services.
+
+## What Goes Here
+`UserEntity.ts`, `OrderEntity.ts`, `ProductEntity.ts`. ORM model definitions, database schemas.
+
+## What Does NOT Belong Here
+Business rules or application logic.
+
+=== data/migrations
+# Migrations
+
+## What
+Database schema migration files — versioned changes to your database structure.
+
+## Why
+Migrations provide a controlled, reversible way to evolve your database schema over time.
+
+## What Goes Here
+Timestamped migration files like `20240101_create_users_table.ts`, `20240102_add_email_index.ts`. Seeders for initial data.
+
+## What Does NOT Belong Here
+Application logic or repository code.
+
+=== common
+# Common
+
+## What
+Shared utilities, types, and helpers used across all layers.
+
+## Why
+Prevents duplication of generic functionality that doesn't belong to any specific layer.
+
+## What Goes Here
+Use `utils/` for helper functions, `types/` for shared type definitions.
+
+=== common/utils
+# Utils
+
+## What
+Generic utility functions used across the application.
+
+## Why
+Centralizes helper logic so it's not duplicated across layers.
+
+## What Goes Here
+`dateUtils.ts`, `stringUtils.ts`, `hashUtils.ts`, `paginationHelper.ts`.
+
+## What Does NOT Belong Here
+Business-specific logic.
+
+=== common/types
+# Types
+
+## What
+Shared type definitions, interfaces, and enums used across multiple layers.
+
+## Why
+Single source of truth for cross-layer types.
+
+## What Goes Here
+`pagination.ts`, `apiResponse.ts`, `enums.ts`, `common.ts`.
+
+## What Does NOT Belong Here
+Layer-specific types.
+
+=== config
+# Config
+
+## What
+Application configuration and environment settings.
+
+## Why
+Centralizes all configuration to keep environment details out of your logic layers.
+
+## What Goes Here
+`database.config.ts`, `app.config.ts`, `environment.ts`, `logger.config.ts`.
+
+## What Does NOT Belong Here
+Business logic or route definitions.

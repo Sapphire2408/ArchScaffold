@@ -1,0 +1,247 @@
+# Event-Driven Architecture
+
+=== events
+# Events
+
+## What
+The central nervous system of the architecture. Everything revolves around events — things that happened. Components communicate by emitting and reacting to events rather than calling each other directly.
+
+## Why
+Event-driven architecture maximizes decoupling. Producers don't know about consumers. Adding a new reaction to an event means adding a new subscriber — zero changes to existing code.
+
+## What Goes Here
+Use `definitions/` for event schemas, `handlers/` for event processing logic, `publishers/` for event emission, `subscribers/` for event consumption setup.
+
+=== events/definitions
+# Event Definitions
+
+## What
+The schemas and types for all events in the system. Each event defines its name, payload structure, and metadata.
+
+## Why
+Event definitions are the contracts of your system. Producers and consumers both depend on these definitions, ensuring they agree on what data an event carries.
+
+## What Goes Here
+`UserRegistered.ts`, `OrderPlaced.ts`, `PaymentProcessed.ts`, `InventoryUpdated.ts`. Each defines the event type, payload interface, and version.
+
+## What Does NOT Belong Here
+Event handling logic or infrastructure code.
+
+=== events/handlers
+# Event Handlers
+
+## What
+Functions or classes that react to specific events. Each handler performs one action in response to an event.
+
+## Why
+Handlers are where side effects live. When `OrderPlaced` fires, separate handlers might: send a confirmation email, update inventory, notify the warehouse — each independently.
+
+## What Goes Here
+`SendWelcomeEmailOnUserRegistered.ts`, `UpdateInventoryOnOrderPlaced.ts`, `NotifyWarehouseOnOrderPlaced.ts`. Naming convention: action + "On" + event.
+
+## What Does NOT Belong Here
+Event definitions, publishing logic, or domain models.
+
+=== events/publishers
+# Event Publishers
+
+## What
+Components responsible for emitting events. They take a domain action's result and publish the corresponding event to the event bus or message broker.
+
+## Why
+Separating publishing logic allows you to control how events are dispatched — synchronously, asynchronously, with retry logic, or with guaranteed delivery.
+
+## What Goes Here
+`EventPublisher.ts`, `DomainEventEmitter.ts`, domain-specific publishers if needed.
+
+## What Does NOT Belong Here
+Event handling or infrastructure configuration.
+
+=== events/subscribers
+# Event Subscribers
+
+## What
+Subscription setup — wiring events to their handlers. This is where you declare which handlers listen to which events.
+
+## Why
+Centralizing subscription setup makes it easy to see the full event flow at a glance — a map of "when X happens, do Y, Z, and W."
+
+## What Goes Here
+`subscriptions.ts`, or per-domain files like `orderSubscriptions.ts`, `userSubscriptions.ts`. Registration code that connects events to handlers.
+
+## What Does NOT Belong Here
+Handler logic or event definitions.
+
+=== sagas
+# Sagas (Process Managers)
+
+## What
+Long-running workflows that react to sequences of events, coordinating multi-step business processes. A saga listens for events, maintains state about the workflow's progress, and triggers further actions (commands or events) to advance or compensate the process.
+
+## Why
+In event-driven systems, complex operations span multiple events and services. An order fulfillment saga might wait for `PaymentProcessed`, then emit a `ShipOrder` command, then wait for `ItemShipped`. If `PaymentFailed` arrives instead, it triggers compensating actions like `ReleaseInventory`. Without sagas, this coordination logic gets scattered across unrelated event handlers.
+
+## What Goes Here
+`OrderFulfillmentSaga.ts`, `UserOnboardingSaga.ts`, `PaymentRetrySaga.ts`, `RefundSaga.ts`. Each saga defines: (1) which event starts it, (2) what state it tracks, (3) which events advance it, (4) what actions it takes at each step, (5) how it compensates on failure.
+
+## What Does NOT Belong Here
+Simple, single-step event reactions (those are event handlers), domain logic, or infrastructure code.
+
+## Choreography vs. Orchestration
+There are two styles. In **choreography**, each service reacts to events independently with no central coordinator — the workflow emerges from the chain of events. In **orchestration**, a saga acts as a central coordinator that explicitly manages the steps. This directory supports both: choreography-style sagas are lightweight (mostly just compensation logic), while orchestration-style sagas are more stateful and directive.
+
+=== domain
+# Domain
+
+## What
+Business models and services. In event-driven architecture, domain operations typically produce events as a primary output.
+
+## Why
+The domain encapsulates business logic. It processes commands and produces events that represent what happened.
+
+## What Goes Here
+Use `models/` for entities and value objects, `services/` for business operations.
+
+=== domain/models
+# Domain Models
+
+## What
+Entities and value objects. In event-driven systems, models often track uncommitted events that are flushed after persistence.
+
+## Why
+Models carry business rules. They decide whether an action is valid and what event it produces.
+
+## What Goes Here
+`User.ts`, `Order.ts`, `Product.ts`, `Money.ts`. Models may include methods like `placeOrder()` that return or queue domain events.
+
+## What Does NOT Belong Here
+Infrastructure code or event handling.
+
+=== domain/services
+# Domain Services
+
+## What
+Business operations that coordinate multiple models or don't belong to a single entity.
+
+## Why
+Some operations span entities — like transferring funds between accounts. Domain services handle these while still producing events.
+
+## What Goes Here
+`OrderService.ts`, `PaymentService.ts`, `InventoryService.ts`.
+
+## What Does NOT Belong Here
+Infrastructure concerns or HTTP handling.
+
+=== infrastructure
+# Infrastructure
+
+## What
+Technical implementations — message brokers, databases, and external integrations.
+
+## Why
+Infrastructure supports the event-driven flow: message brokers deliver events, databases persist state.
+
+## What Goes Here
+Use `messaging/` for event bus and broker implementations, `persistence/` for database code.
+
+=== infrastructure/messaging
+# Messaging
+
+## What
+Event bus and message broker implementations — the backbone of event delivery.
+
+## Why
+The messaging infrastructure determines how events flow: in-memory for simple cases, RabbitMQ or Kafka for distributed systems, with guarantees like at-least-once delivery.
+
+## What Goes Here
+`RabbitMQBroker.ts`, `KafkaProducer.ts`, `KafkaConsumer.ts`, `InMemoryEventBus.ts`, `EventSerializer.ts`, `DeadLetterHandler.ts`.
+
+## What Does NOT Belong Here
+Business logic or event definitions.
+
+=== infrastructure/persistence
+# Persistence
+
+## What
+Database implementations — repositories, ORM config, migrations. May include an event store if using event sourcing.
+
+## Why
+Persistence is where state lives between events. In event-sourced systems, the event store IS the primary persistence.
+
+## What Goes Here
+`PostgresUserRepository.ts`, `EventStore.ts`, ORM models, migrations, connection config.
+
+## What Does NOT Belong Here
+Business logic or messaging code.
+
+=== api
+# API
+
+## What
+HTTP layer — the entry point for external requests. API controllers dispatch domain operations that trigger the event flow.
+
+## Why
+The API translates external input into domain operations.
+
+## What Goes Here
+Use `controllers/` for request handlers, `middleware/` for HTTP concerns.
+
+=== api/controllers
+# Controllers
+
+## What
+HTTP request handlers that trigger domain operations. The response might be synchronous or the controller might return immediately and let events handle the rest.
+
+## Why
+Controllers bridge HTTP to your event-driven internals.
+
+## What Goes Here
+`UserController.ts`, `OrderController.ts`, `WebhookController.ts` (for incoming external events).
+
+## What Does NOT Belong Here
+Business logic or event handling.
+
+=== api/middleware
+# Middleware
+
+## What
+Cross-cutting HTTP concerns.
+
+## Why
+Centralizes authentication, logging, error handling.
+
+## What Goes Here
+`auth.ts`, `errorHandler.ts`, `rateLimiter.ts`, `requestLogger.ts`.
+
+## What Does NOT Belong Here
+Business logic.
+
+=== config
+# Config
+
+## What
+Application configuration, broker connection settings, and dependency injection.
+
+## Why
+Centralizes all configuration including messaging infrastructure setup.
+
+## What Goes Here
+`container.ts`, `broker.config.ts`, `database.config.ts`, `environment.ts`.
+
+## What Does NOT Belong Here
+Business logic.
+
+=== shared
+# Shared
+
+## What
+Cross-cutting utilities and types.
+
+## Why
+Generic helpers used across the event-driven system.
+
+## What Goes Here
+`Result.ts`, `DateUtils.ts`, `constants.ts`, `EventMetadata.ts`.
+
+## What Does NOT Belong Here
+Domain-specific code.
