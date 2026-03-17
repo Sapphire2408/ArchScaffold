@@ -1,5 +1,61 @@
 # Onion Architecture
 
+## Overview
+Onion Architecture, pioneered by Jeffrey Palermo, places the domain model at the very center of the application, with multiple concentric rings representing different levels of abstraction. The golden rule is that all dependencies must flow inwards towards the center.
+
+## Architecture Diagram
+```mermaid
+graph TD
+    subgraph InfraRing [Infrastructure/API Ring]
+        API[API / Controllers]
+        DB[Database / Persistence]
+        Ext[External Services]
+    end
+    
+    subgraph AppRing [Application Ring]
+        AppSvc[Application Services]
+    end
+    
+    subgraph DomSvcRing [Domain Services Ring]
+        DomSvc[Domain Services]
+    end
+    
+    subgraph DomainModelRing [Domain Model Ring]
+        Model[Domain Models & Entities]
+    end
+    
+    API --> AppSvc
+    DB -.->|Implements Interfaces| DomSvc
+    Ext -.->|Implements Interfaces| AppSvc
+    AppSvc --> DomSvc
+    AppSvc --> Model
+    DomSvc --> Model
+    
+    classDef model fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef svc fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    classDef app fill:#e2e3e5,stroke:#383d41,stroke-width:2px;
+    classDef infra fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    
+    class Model model;
+    class DomSvc svc;
+    class AppSvc app;
+    class API,DB,Ext infra;
+```
+
+## Core Principles
+- **Dependency Rule**: Outer layers depend on inner layers. Inner layers know absolutely nothing about outer layers.
+- **Domain Centric**: The Domain Model is the absolute center of the application, containing the state and behavior of the business.
+- **Interface Driven**: The inner layers define interfaces (contracts) that outer layers must implement (Dependency Inversion).
+- **Separation of Infrastructure**: Database, UI, and external services are pushed to the outermost edge.
+
+## Trade-offs
+- **Pros**: Extreme maintainability, easily testable core business logic, decoupled infrastructure.
+- **Cons**: Can feel overly complex for small applications. Requires a paradigm shift for developers used to traditional layered architectures.
+
+## When to Use
+- Complex business applications where the domain rules are highly intricate.
+- Projects expected to have a long lifespan where infrastructure (databases, frameworks) might change over time.
+- Systems requiring rigorous unit testing of business rules without relying on databases.
 === core
 # Core
 

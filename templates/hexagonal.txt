@@ -1,5 +1,53 @@
 # Hexagonal Architecture (Ports & Adapters)
 
+## Overview
+Hexagonal Architecture divides the system into loosely-coupled interchangeable components. The central core logic is surrounded by "ports" (interfaces). The outside world (UI, database, external APIs) interacts with the core exclusively through "adapters" that plug into these ports.
+
+## Architecture Diagram
+```mermaid
+graph TD
+    subgraph Primary [Primary / Driving Adapters]
+        UI[Web / REST / CLI]
+    end
+
+    subgraph Core [Application Core]
+        IP(Inbound Ports) 
+        Domain[Domain / App Services]
+        OP(Outbound Ports)
+    end
+    
+    subgraph Secondary [Secondary / Driven Adapters]
+        DB[Database Adapter]
+        Ext[External API Adapter]
+    end
+
+    UI -.->|Calls / Depends on| IP
+    Domain -->|Implements| IP
+    Domain -->|Depends on / Calls| OP
+    DB -.->|Implements| OP
+    Ext -.->|Implements| OP
+
+    classDef core fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef adapter fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    
+    class Core,Domain,IP,OP core;
+    class Primary,Secondary,UI,DB,Ext adapter;
+```
+
+## Core Principles
+- **Separation of Concerns**: The core business logic is completely isolated from delivery mechanisms and infrastructural details.
+- **Dependency Inversion**: Adapters depend on the core. The core defines the interfaces (ports) it needs, and the adapters implement them.
+- **Interchangeable Adapters**: You can swap out a database, UI, or third-party service without altering business logic.
+- **Testability**: The core can be tested entirely in isolation using mock adapters.
+
+## Trade-offs
+- **Pros**: Outstanding testability, technology-agnostic core, highly adaptable to external API changes.
+- **Cons**: Requires writing many interfaces (ports) and mappers, which increases codebase size.
+
+## When to Use
+- Applications with complex business logic that must outlive surrounding infrastructure technologies.
+- Projects needing multiple delivery mechanisms (e.g., REST API, GraphQL, and CLI).
+- Systems heavily reliant on volatile third-party integrations.
 === adapters
 # Adapters
 

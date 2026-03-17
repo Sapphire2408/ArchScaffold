@@ -1,5 +1,54 @@
 # Clean Architecture
 
+## Overview
+Clean Architecture separates the elements of a design into ring levels. The main rule is that code dependencies can only point *inward*. The inner layers contain the business rules, while the outer layers contain mechanisms to keep the business rules ignorant of the UI, database, or frameworks.
+
+## Architecture Diagram
+```mermaid
+graph TD
+    subgraph Outer [Outer Layer]
+        UI[Presentation / Controllers]
+        DB[Infrastructure / Database]
+        External[External Services]
+    end
+    
+    subgraph Middle [Middle Layer]
+        App[Application / Use Cases]
+    end
+    
+    subgraph Inner [Inner Layer]
+        Domain[Domain / Entities & Services]
+    end
+
+    UI --> App
+    DB -.->|Implements| App
+    External -.->|Implements| App
+    App --> Domain
+    
+    classDef inner fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef middle fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    classDef outer fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    
+    class Domain inner;
+    class App middle;
+    class UI,DB,External outer;
+```
+
+## Core Principles
+- **Independent of Frameworks**: Frameworks are used as tools, rather than forcing the system to cram into their limited constraints.
+- **Testable**: The business rules can be tested without the UI, Database, Web Server, or any other external element.
+- **Independent of UI**: The UI can change easily without changing the rest of the system.
+- **Independent of Database**: You can swap out SQL for NoSQL without impacting business logic.
+- **Independent of external agency**: Business rules don't know anything at all about the outside world.
+
+## Trade-offs
+- **Pros**: Highly testable, maintainable, loosely coupled, and framework-agnostic.
+- **Cons**: High initial complexity and directory overhead. Can feel like "over-engineering" for simple CRUD applications. Requires strict discipline.
+
+## When to Use
+- Complex, long-lived enterprise applications.
+- Projects with a large team of developers where strict boundaries are needed.
+- Domains with complex business rules where framework independence is highly valued.
 === domain
 # Domain Layer
 

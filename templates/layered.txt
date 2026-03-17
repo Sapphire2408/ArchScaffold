@@ -1,5 +1,44 @@
 # Layered (N-Tier) Architecture
 
+## Overview
+Layered Architecture (or N-Tier Architecture) organizes the system into horizontal logical layers, where each layer has a specific role. Traditionally, a request flows top-down from the Presentation layer to the Business layer, and finally to the Data layer.
+
+## Architecture Diagram
+```mermaid
+graph TD
+    subgraph LayeredArch [Layered Architecture]
+        UI[Presentation Layer]
+        Biz[Business Layer]
+        Data[Data Layer]
+        DB[(Database)]
+    end
+    
+    UI -->|Calls| Biz
+    Biz -->|Calls| Data
+    Data -->|Queries/Updates| DB
+
+    classDef ui fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    classDef biz fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef data fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    
+    class UI ui;
+    class Biz biz;
+    class Data,DB data;
+```
+
+## Core Principles
+- **Separation of Concerns**: Each layer has a distinct responsibility (e.g., UI handles routing, Business handles logic, Data handles storage).
+- **Top-Down Dependency**: Layers only depend on the layers directly below them. The Presentation layer knows about the Business layer, but not vice-versa.
+- **Simplicity**: The flow of data is linear and easy to understand for developers of all skill levels.
+
+## Trade-offs
+- **Pros**: Very easy to understand and quick to set up. Excellent for simple CRUD applications. 
+- **Cons**: High coupling. Database schema changes often ripple up through all layers (the "sinkhole anti-pattern"). Testing business logic often requires a database.
+
+## When to Use
+- Small to medium-sized applications with straightforward CRUD requirements.
+- Teams with junior developers who need a very clear, traditional structure.
+- Applications where time-to-market is prioritized over long-term complex domain evolution.
 === presentation
 # Presentation Layer
 

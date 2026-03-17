@@ -1,6 +1,53 @@
 # CQRS (Command Query Responsibility Segregation)
 
-Note: This template represents CQRS without Event Sourcing.
+## Overview
+CQRS (Command Query Responsibility Segregation) is an architectural pattern that separates data mutation operations (Commands) from data retrieval operations (Queries). By decoupling these two responsibilities, you can optimize, scale, and secure the read and write paths independently.
+
+Note: This template represents CQRS without Event Sourcing (ES). CQRS+ES is a common variant where the write side persists events rather than state, and read models are built from event projections.
+
+## Architecture Diagram
+```mermaid
+graph TD
+    API[API / Controllers]
+    
+    subgraph WriteSide [Write Side]
+        Cmd[Commands] -->|Handled by| HdlW[Command Handlers]
+        HdlW -->|Mutates| Dom[Domain Models]
+        HdlW -->|Loads/Saves| RepoW[Write Repository]
+        RepoW -.->|Persists| DB_W[(Write Database)]
+    end
+    
+    subgraph ReadSide [Read Side]
+        Qry[Queries] -->|Handled by| HdlR[Query Handlers]
+        HdlR -->|Queries| RepoR[Read Repository]
+        RepoR -.->|Reads| DB_R[(Read Database / Views)]
+    end
+    
+    API -->|Dispatches| Cmd
+    API -->|Dispatches| Qry
+    
+    DB_W -.->|Async Update / Events| DB_R
+
+    classDef write fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    classDef read fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    
+    class Cmd,HdlW,Dom,RepoW,DB_W write;
+    class Qry,HdlR,RepoR,DB_R read;
+```
+
+## Core Principles
+- **Strict Segregation**: A method should either change state and return void (Command), or return data and not change state (Query).
+- **Asymmetric Scaling**: The read side and write side can scale independently. Systems often have 100x more reads than writes.
+- **Optimized Models**: The write model is structured for transactional integrity and business rules. The read model is denormalized and structured exactly as the UI needs it.
+
+## Trade-offs
+- **Pros**: Incredible performance tuning for reads, simplifies complex business logic on the write side, prepares the system for Event Sourcing.
+- **Cons**: High cognitive load, eventual consistency issues between read/write data, significant boilerplate.
+
+## When to Use
+- Highly collaborative domains where complex business logic must be applied concurrently.
+- Data-heavy applications with major performance disparities between reads and writes.
+- UIs with complex views that require aggregating data from many different contexts.
 CQRS+ES is a common variant where the write side persists
 events rather than state, and read models are built from
 event projections. That variant replaces the write store

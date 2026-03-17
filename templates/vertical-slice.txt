@@ -1,5 +1,50 @@
 # Vertical Slice Architecture
 
+## Overview
+Vertical Slice Architecture organizes code by feature rather than by technical layer. Instead of grouping all controllers together and all repositories together, it creates a self-contained "vertical slice" for each business feature. Each slice cuts through the entire stack (from API to database).
+
+## Architecture Diagram
+```mermaid
+graph TD
+    subgraph Vertical Slice Architecture
+        
+        subgraph Feature1 [Create User Slice]
+            F1_API[Endpoint] --> F1_Logic[Validation & Logic]
+            F1_Logic --> F1_DB[(Query/DB)]
+        end
+        
+        subgraph Feature2 [Place Order Slice]
+            F2_API[Endpoint] --> F2_Logic[Validation & Logic]
+            F2_Logic --> F2_DB[(Query/DB)]
+        end
+        
+        subgraph Feature3 [Get Product Slice]
+            F3_API[Endpoint] --> F3_DB[(Query/DB)]
+        end
+        
+    end
+
+    classDef slice fill:#f8f9fa,stroke:#6c757d,stroke-width:2px;
+    classDef comp fill:#d4edda,stroke:#28a745,stroke-width:1px;
+    
+    class Feature1,Feature2,Feature3 slice;
+    class F1_API,F1_Logic,F1_DB,F2_API,F2_Logic,F2_DB,F3_API,F3_DB comp;
+```
+
+## Core Principles
+- **Maximize Cohesion**: Everything related to a single feature lives in one place. 
+- **Minimize Coupling**: Slices are completely independent. A change in the "Create User" slice cannot break the "Update User" slice.
+- **No Shared Abstractions by Default**: Duplicate code is preferred over the wrong abstraction. 
+- **Tailored Complexity**: A simple read query doesn't need domain models; it can hit the DB directly. A complex write operation can use domain models. Each slice chooses its own complexity.
+
+## Trade-offs
+- **Pros**: Exceptional developer experience, highly decoupled, easy to add/delete features, eliminates "spaghetti" dependencies between layers.
+- **Cons**: Can lead to code duplication. Sometimes difficult to identify truly shared domain concepts.
+
+## When to Use
+- Agile teams focused on delivering business features quickly.
+- Projects suffering from "layer fatigue" (where modifying a feature involves tweaking 7 layers).
+- Microservices where the service has a tightly focused bounded context.
 === features
 # Features
 

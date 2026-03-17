@@ -1,5 +1,55 @@
 # Modular Monolith
 
+## Overview
+A Modular Monolith is an architecture where the application is deployed as a single unit (a monolith) but internally structured as independent, loosely coupled modules. Each module encapsulates a specific business domain or bounded context and exposes a strict public API.
+
+## Architecture Diagram
+```mermaid
+graph TD
+    subgraph Modular Monolith Application
+        API[Global API / Router]
+        
+        subgraph ModuleA [Users Module]
+            A_UI[Public API / Facade] --> A_App[Application]
+            A_App --> A_Dom[Domain]
+            A_App --> A_Infra[Infrastructure]
+        end
+        
+        subgraph ModuleB [Orders Module]
+            B_UI[Public API / Facade] --> B_App[Application]
+            B_App --> B_Dom[Domain]
+            B_App --> B_Infra[Infrastructure]
+        end
+        
+        API --> A_UI
+        API --> B_UI
+        
+        A_App -.->|Synchronous Method Call| B_UI
+        B_App -.->|Publishes Event| EventBus((Internal Event Bus))
+        EventBus -.->|Subscribes| A_App
+    end
+
+    classDef module fill:#f8f9fa,stroke:#6c757d,stroke-width:2px;
+    classDef api fill:#cce5ff,stroke:#007bff,stroke-width:1px;
+    classDef logic fill:#d4edda,stroke:#28a745,stroke-width:1px;
+    
+    class ModuleA,ModuleB module;
+    class A_UI,B_UI api;
+    class A_App,B_App,A_Dom,B_Dom logic;
+```
+
+## Core Principles
+- **Strict Boundaries**: Modules cannot import internal files from other modules. They communicate only through public APIs (`index.ts` or Facades) or domain events.
+- **Independent Data**: Each module should own its database tables. Cross-module database JOINs are forbidden.
+- **Single Deployment Unit**: Unline microservices, the application runs in a single process. This avoids network latency and complex Devops setups.
+
+## Trade-offs
+- **Pros**: Operational simplicity, easy refactoring, type safety across boundaries, clear path to extract microservices later if scaling requires it.
+- **Cons**: Requires strict discipline to maintain boundaries (compilers don't always enforce this), limits scaling of individual components.
+
+## When to Use
+- Most new greenfield projects where you anticipate complexity but don't need independent scaling yet.
+- Teams moving away from tangled monoliths who want better structure without microservice overhead.
 === modules
 # Modules
 

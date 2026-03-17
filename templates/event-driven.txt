@@ -1,5 +1,43 @@
 # Event-Driven Architecture
 
+## Overview
+Event-Driven Architecture (EDA) is a design pattern in which decoupled components asynchronously communicate by publishing and subscribing to events. An event represents a significant change in state (e.g., "OrderPlaced", "UserRegistered").
+
+## Architecture Diagram
+```mermaid
+graph TD
+    API[API / Ingress] -->|REST/GraphQL| SvcA[Service A (Publisher)]
+    
+    SvcA -->|Publishes Event| Bus((Event Bus / Broker))
+    
+    Bus -.->|Delivers Event to| SvcB[Service B (Subscriber)]
+    Bus -.->|Delivers Event to| SvcC[Service C (Subscriber)]
+    
+    SvcB -->|State Change| DB_B[(DB B)]
+    SvcC -->|State Change| DB_C[(DB C)]
+    
+    classDef pub fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    classDef broker fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
+    classDef sub fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    
+    class SvcA pub;
+    class Bus broker;
+    class SvcB,SvcC sub;
+```
+
+## Core Principles
+- **Asynchronous Communication**: Services don't call each other directly; they emit events and react to them.
+- **Extreme Decoupling**: Producers are completely unaware of consumers. You can add new consumers without changing the producer.
+- **Choreography**: Business processes emerge from the chain of events rather than being explicitly managed by a central controller (though Sagas can be used for complex workflows).
+
+## Trade-offs
+- **Pros**: Outstanding scalability, resilience (if a consumer is down, messages are queued), and agility in adding new features.
+- **Cons**: Difficult to trace execution paths. Eventual consistency forces UI paradigms to change. Handling duplicate events requires careful design.
+
+## When to Use
+- Highly distributed systems where availability and scalability are critical.
+- Projects where multiple sub-systems need to react to the same occurrences independently.
+- Domains with long-running, asynchronous business processes.
 === events
 # Events
 
